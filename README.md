@@ -1,6 +1,7 @@
 # MAnaglyph:
 Simple anaglpyh plotting for Matlab.
-![anaglyph of peaks](https://github.com/KEClaytor/managlyph/peaks.jpg)
+
+![anaglyph of peaks](https://github.com/KEClaytor/managlyph/blob/master/peaks.jpg)
 
 # Installation:
 Unzip and add to your Matlab path.
