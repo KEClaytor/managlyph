@@ -1,3 +1,26 @@
+%% ax = anaglyph(plot_fcn, plot_options)
+% Plot a red/cyan anaglpyh. Returns axes handles to subaxes.
+% Inputs:
+%   plot_fcn (optional)
+%       Function handle, currently @mesh and @plot3 are supported.
+%       If not supplied, mesh will be used to plot.
+%   plot_options
+%       Options to be passed to the plot function handle. At a very
+%       minimum, these should be the X, Y, Z data pairs.
+%       They are passed as (see examples below);
+%           plot_fcn(plot_options{:})
+%
+% Examples:
+%   [X, Y, Z] = peaks;
+%   anaglyph(X, Y, Z);
+% 
+%   % Specify additional plot options
+%   t = linspace(0, 1);
+%   x = cos(2*pi*2*t);
+%   y = sin(2*pi*3*t);
+%   anaglyph(@plot3, x, y, t, 'LineWidth', 3);
+% 
+% 2017-03-07 - ke.claytor(at)gmail.com
 
 function [axv] = anaglyph(plot_fcn, varargin)
     
@@ -55,4 +78,29 @@ function [axv] = anaglyph(plot_fcn, varargin)
     ax2.YColor = 'none';
     ax2.ZColor = 'none';
     grid(ax2, 'off');
+    
+end
+
+% Sync the two axes' views while rotating
+function preSyncAxes(lp, ~, ~ ,~)
+    
+    addprop(lp, 'View');
+    
+end
+
+% Add in the disparity when we stop rotating
+function postSyncAxes(lp, axv, ~, ~)
+    
+    % Angular disparity
+    d = 1;
+    % Remove the view sync
+    removeprop(lp, 'View')
+    % Get the axes view
+    x = axv(1).View;
+    a = x(1);
+    e = x(2);
+    % Adjust for the disparity
+    view(axv(1), a+d, e);
+    view(axv(2), a-d, e);
+    
 end
