@@ -13,13 +13,13 @@
 % Examples:
 %   [X, Y, Z] = peaks;
 %   anaglyph(X, Y, Z);
-% 
+%
 %   % Specify additional plot options
 %   t = linspace(0, 1);
 %   x = cos(2*pi*2*t);
 %   y = sin(2*pi*3*t);
 %   anaglyph(@plot3, x, y, t, 'LineWidth', 3);
-% 
+%
 % 2017-03-07 - ke.claytor(at)gmail.com
 
 function [axv] = anaglyph(plot_fcn, varargin)
@@ -35,7 +35,9 @@ function [axv] = anaglyph(plot_fcn, varargin)
     % Create the figure and dual axes
     fh = figure;
     ax1 = gca;
-    ax2 = axes('Position', [0.1300 0.1100 0.7750 0.8150]);
+    ax2 = axes('Position', ax1.Position);
+    ax1.Projection = 'perspective';
+    ax2.Projection = 'perspective';
     
     m1 = plot_fcn(ax1, V{:});
     m2 = plot_fcn(ax2, V{:});
@@ -62,15 +64,22 @@ function [axv] = anaglyph(plot_fcn, varargin)
     
     % Begin linking properties
     axv = [ax1, ax2];
-    lp = linkprop(axv, {'View', 'XLim', 'YLim', 'ZLim'});
+    lp = linkprop(axv, {'View', 'XLim', 'YLim', 'ZLim', ...
+        'CameraTarget', 'CameraViewAngle'});
     
-    % Ensure the axes update when we do a rotation
-    h = rotate3d(fh);
-    h.ActionPreCallback = @(obj, evt) preSyncAxes(lp, axv, obj, evt);
-    h.ActionPostCallback = @(obj, evt) postSyncAxes(lp, axv, obj, evt);
+    % Ensure the axes update when we do a manipulation
+    p = pan(fh);
+    p.ActionPreCallback = @(obj, evt) preSyncAxes(lp, axv, obj, evt);
+    p.ActionPostCallback = @(obj, evt) postSyncAxes(lp, axv, obj, evt);
+    z = zoom(fh);
+    z.ActionPreCallback = @(obj, evt) preSyncAxes(lp, axv, obj, evt);
+    z.ActionPostCallback = @(obj, evt) postSyncAxes(lp, axv, obj, evt);
+    r = rotate3d(fh);
+    r.ActionPreCallback = @(obj, evt) preSyncAxes(lp, axv, obj, evt);
+    r.ActionPostCallback = @(obj, evt) postSyncAxes(lp, axv, obj, evt);
     
-    % Trigger a rotation to get the disparity
-    h.ActionPostCallback(fh, []);
+    % Trigger a callback to get the disparity
+    r.ActionPostCallback(fh, []);
     
     % Turn off the second axes ticks and grid so only the first is visible
     ax2.Color = 'none';
@@ -82,25 +91,28 @@ function [axv] = anaglyph(plot_fcn, varargin)
 end
 
 % Sync the two axes' views while rotating
-function preSyncAxes(lp, ~, ~ ,~)
+function preSyncAxes(lp, ~, ~ ,evd)
     
     addprop(lp, 'View');
+    addprop(lp, 'CameraPosition');
     
 end
 
 % Add in the disparity when we stop rotating
-function postSyncAxes(lp, axv, ~, ~)
+function postSyncAxes(lp, axv, obj, evd)
     
     % Angular disparity
     d = 1;
     % Remove the view sync
-    removeprop(lp, 'View')
+    removeprop(lp, 'View');
+    removeprop(lp, 'CameraPosition');
+    removeprop(lp, '');
     % Get the axes view
     x = axv(1).View;
     a = x(1);
     e = x(2);
     % Adjust for the disparity
-    view(axv(1), a+d, e);
-    view(axv(2), a-d, e);
+    view(axv(1), a, e);
+    view(axv(2), a-2*d, e);
     
 end
