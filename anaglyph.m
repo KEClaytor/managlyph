@@ -20,21 +20,47 @@
 %   y = sin(2*pi*3*t);
 %   anaglyph(@plot3, x, y, t, 'LineWidth', 3);
 %
+%   % Scatterplots link to each other
+%
 % 2017-03-07 - ke.claytor(at)gmail.com
 
-function [axv] = anaglyph(plot_fcn, varargin)
+function [axv] = anaglyph(varargin)
     
-    % Default to mesh plotting
-    if isa(plot_fcn, 'function_handle')
-        V = varargin;
+    % Parse input arguments
+    if isa(varargin{1}, 'function_handle')
+        % No axes should be supplied
+        prior_ax = [];
+        plot_fcn = varargin{1};
+        V = varargin(2:end);
+    elseif isa(varargin{1}(1), 'matlab.graphics.axis.Axes');
+        prior_ax = varargin{1}(1);
+        if isa(varargin{2}, 'function_handle')
+            plot_fcn = varargin{2};
+            V = varargin(3:end);
+        else
+            plot_fcn = @mesh;
+            V = varargin(2:end);
+        end
     else
-        V = {plot_fcn, varargin{:}};
+        prior_ax = [];
         plot_fcn = @mesh;
+        V = varargin;
     end
     
     % Create the figure and dual axes
-    fh = figure;
-    ax1 = gca;
+    if isempty(prior_ax)
+        fh = figure;
+        ax1 = gca;
+        prior_ax = ax1;
+    else
+        fh = prior_ax(1).Parent;
+        ax1 = axes('Position', prior_ax(1).Position);
+        ax1.Color = 'none';
+        ax1.XColor = 'none';
+        ax1.YColor = 'none';
+        ax1.ZColor = 'none';
+        grid(ax1, 'off');
+    end
     ax2 = axes('Position', ax1.Position);
     ax1.Projection = 'perspective';
     ax2.Projection = 'perspective';
@@ -60,10 +86,17 @@ function [axv] = anaglyph(plot_fcn, varargin)
         case {'plot3'}
             m1.Color = mycmap(1, :);
             m2.Color = mycmap(2, :);
+        case {'scatter3'}
+            m1.MarkerEdgeColor = mycmap(1, :);
+            m2.MarkerEdgeColor = mycmap(2, :);
+            if ~strcmp(m1.MarkerFaceColor, 'none')
+                m1.MarkerFaceColor = mycmap(1, :);
+                m2.MarkerFaceColor = mycmap(2, :);
+            end
     end
     
     % Begin linking properties
-    axv = [ax1, ax2];
+    axv = [prior_ax, ax1, ax2];
     lp = linkprop(axv, {'View', 'XLim', 'YLim', 'ZLim', ...
         'CameraTarget', 'CameraViewAngle'});
     
@@ -91,7 +124,7 @@ function [axv] = anaglyph(plot_fcn, varargin)
 end
 
 % Sync the two axes' views while rotating
-function preSyncAxes(lp, ~, ~ ,evd)
+function preSyncAxes(lp, ~, ~ , ~)
     
     addprop(lp, 'View');
     addprop(lp, 'CameraPosition');
@@ -99,7 +132,7 @@ function preSyncAxes(lp, ~, ~ ,evd)
 end
 
 % Add in the disparity when we stop rotating
-function postSyncAxes(lp, axv, obj, evd)
+function postSyncAxes(lp, axv, ~, ~)
     
     % Angular disparity
     d = 1;
