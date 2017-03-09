@@ -11,16 +11,23 @@
 %           plot_fcn(plot_options{:})
 %
 % Examples:
-%   [X, Y, Z] = peaks;
-%   anaglyph(X, Y, Z);
+%     [X, Y, Z] = peaks;
+%     anaglyph(X, Y, Z);
 %
 %   % Specify additional plot options
-%   t = linspace(0, 1);
-%   x = cos(2*pi*2*t);
-%   y = sin(2*pi*3*t);
-%   anaglyph(@plot3, x, y, t, 'LineWidth', 3);
+%     t = linspace(0, 1);
+%     x = cos(2*pi*2*t);
+%     y = sin(2*pi*3*t);
+%     anaglyph(@plot3, x, y, t, 'LineWidth', 3);
 %
 %   % Scatterplots link to each other
+%     group_a = rand(10, 3) + repmat([1, 0, 0], [10, 1]);
+%     group_b = rand(10, 3) + repmat([0, 1, 0], [10, 1]);
+%     group_c = rand(10, 3) + repmat([0, 0, 1], [10, 1]);
+%     axv = anaglyph(@scatter3, group_a(:, 1), group_a(:, 2), group_a(:, 3));
+%     hold on;
+%     axv = anaglyph(axv, @scatter3, group_b(:, 1), group_b(:, 2), group_b(:, 3), '+');
+%     axv = anaglyph(axv, @scatter3, group_c(:, 1), group_c(:, 2), group_c(:, 3), 'd');
 %
 % 2017-03-07 - ke.claytor(at)gmail.com
 
@@ -33,7 +40,7 @@ function [axv] = anaglyph(varargin)
         plot_fcn = varargin{1};
         V = varargin(2:end);
     elseif isa(varargin{1}(1), 'matlab.graphics.axis.Axes');
-        prior_ax = varargin{1}(1);
+        prior_ax = varargin{1};
         if isa(varargin{2}, 'function_handle')
             plot_fcn = varargin{2};
             V = varargin(3:end);
@@ -51,20 +58,17 @@ function [axv] = anaglyph(varargin)
     if isempty(prior_ax)
         fh = figure;
         ax1 = gca;
-        prior_ax = ax1;
+        trans_1 = false;
     else
         fh = prior_ax(1).Parent;
         ax1 = axes('Position', prior_ax(1).Position);
-        ax1.Color = 'none';
-        ax1.XColor = 'none';
-        ax1.YColor = 'none';
-        ax1.ZColor = 'none';
-        grid(ax1, 'off');
+        trans_1 = true;
     end
     ax2 = axes('Position', ax1.Position);
     ax1.Projection = 'perspective';
     ax2.Projection = 'perspective';
     
+    % Plot the data
     m1 = plot_fcn(ax1, V{:});
     m2 = plot_fcn(ax2, V{:});
     
@@ -97,6 +101,18 @@ function [axv] = anaglyph(varargin)
     
     % Begin linking properties
     axv = [prior_ax, ax1, ax2];
+    % Ensure we capture the full range of data
+    x_lim = [min(arrayfun(@(x) x.XLim(1), axv)), ...
+        max(arrayfun(@(x) x.XLim(2), axv))];
+    y_lim = [min(arrayfun(@(x) x.YLim(1), axv)), ...
+        max(arrayfun(@(x) x.YLim(2), axv))];
+    z_lim = [min(arrayfun(@(x) x.ZLim(1), axv)), ...
+        max(arrayfun(@(x) x.ZLim(2), axv))];
+    for ii = 1:length(axv)
+        axv(ii).XLim = x_lim;
+        axv(ii).YLim = y_lim;
+        axv(ii).ZLim = z_lim;
+    end
     lp = linkprop(axv, {'View', 'XLim', 'YLim', 'ZLim', ...
         'CameraTarget', 'CameraViewAngle'});
     
@@ -112,8 +128,16 @@ function [axv] = anaglyph(varargin)
     r.ActionPostCallback = @(obj, evt) postSyncAxes(lp, axv, obj, evt);
     
     % Trigger a callback to get the disparity
-    r.ActionPostCallback(fh, []);
+    r.ActionPostCallback(fh, struct('Axes', ax1));
     
+    % Turn off the first axes if we're printing on an existing one
+    if trans_1
+        ax1.Color = 'none';
+        ax1.XColor = 'none';
+        ax1.YColor = 'none';
+        ax1.ZColor = 'none';
+        grid(ax1, 'off');
+    end
     % Turn off the second axes ticks and grid so only the first is visible
     ax2.Color = 'none';
     ax2.XColor = 'none';
@@ -132,7 +156,7 @@ function preSyncAxes(lp, ~, ~ , ~)
 end
 
 % Add in the disparity when we stop rotating
-function postSyncAxes(lp, axv, ~, ~)
+function postSyncAxes(lp, axv, ~, evd)
     
     % Angular disparity
     d = 1;
@@ -141,11 +165,13 @@ function postSyncAxes(lp, axv, ~, ~)
     removeprop(lp, 'CameraPosition');
     removeprop(lp, '');
     % Get the axes view
-    x = axv(1).View;
+    x = evd.Axes.View;
     a = x(1);
     e = x(2);
-    % Adjust for the disparity
-    view(axv(1), a, e);
-    view(axv(2), a-2*d, e);
+    % Adjust for the disparity across all linked axes
+    for ii = 1:2:length(axv)
+        view(axv(ii), a, e);
+        view(axv(ii+1), a-2*d, e);
+    end
     
 end

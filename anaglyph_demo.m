@@ -23,5 +23,5 @@ group_b = rand(10, 3) + repmat([0, 1, 0], [10, 1]);
 group_c = rand(10, 3) + repmat([0, 0, 1], [10, 1]);
 axv = anaglyph(@scatter3, group_a(:, 1), group_a(:, 2), group_a(:, 3));
 hold on;
-anaglyph(axv, @scatter3, group_b(:, 1), group_b(:, 2), group_b(:, 3), '+');
-anaglyph(axv, @scatter3, group_c(:, 1), group_c(:, 2), group_c(:, 3), 'd');
+axv = anaglyph(axv, @scatter3, group_b(:, 1), group_b(:, 2), group_b(:, 3), '+');
+axv = anaglyph(axv, @scatter3, group_c(:, 1), group_c(:, 2), group_c(:, 3), 'd');
